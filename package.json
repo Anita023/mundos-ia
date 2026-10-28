@@ -1,0 +1,16 @@
+{
+  "name": "mundos-ia",
+  "version": "1.0.0",
+  "description": "Genera la descripción y la imagen de un mundo a partir de una situación y 5 colores",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "Ana Maria Deossa Serna",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "object-hash": "^3.0.0"
+  }
+}

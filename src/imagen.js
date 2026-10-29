@@ -8,7 +8,7 @@ const carpetaImagenes = path.join(__dirname, '..', 'imagenes');
 // paso 2: convertir el código de estado HTTP en un mensaje en español
 function mensajeSegunEstado(estado) {
   if (estado === 401 || estado === 403) {
-    return 'La clave de la API de imagen no es válida. Revisa IMAGEN_API_KEY en tu archivo .env.';
+    return 'El token de la API de imagen no es válido o no tiene permiso. Revisa IMAGEN_API_KEY en tu archivo .env.';
   }
   if (estado === 402 || estado === 429) {
     return 'Llegaste al límite de uso de la API de imagen. Espera un rato o revisa tu cuenta.';
@@ -54,16 +54,9 @@ async function generarImagen(id) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
         Authorization: `Bearer ${clave}`
       },
-      body: JSON.stringify({
-        prompt: descripcion,
-        width: 1024,
-        height: 1024,
-        seed: 0,
-        steps: 4
-      }),
+      body: JSON.stringify({ prompt: descripcion }),
       signal: AbortSignal.timeout(60000)
     });
   } catch (error) {
@@ -81,29 +74,19 @@ async function generarImagen(id) {
     throw new Error(mensajeSegunEstado(respuesta.status));
   }
 
-  // paso 3.7: leer el JSON y buscar la imagen en artifacts[0]
+  // paso 3.7: leer el JSON y comprobar que Cloudflare dice success: true
   const datos = await respuesta.json();
-  if (!datos.artifacts || !datos.artifacts[0]) {
-    throw new Error(
-      'La respuesta de la API de imagen no trae "artifacts". Campos recibidos: ' +
-      Object.keys(datos).join(', ')
-    );
+  if (datos.success !== true) {
+    throw new Error('La API de imagen no terminó bien (success no es true). Intenta de nuevo.');
   }
-  const artefacto = datos.artifacts[0];
 
-  // paso 3.8: con NVIDIA, finishReason debe ser "SUCCESS"
-  if (artefacto.finishReason !== 'SUCCESS') {
-    throw new Error(
-      `La API de imagen no terminó bien (finishReason: ${artefacto.finishReason}). ` +
-      'Puede que el filtro de contenido bloqueara la descripción. Prueba con otra situación o mundo.'
-    );
-  }
-  if (!artefacto.base64) {
-    throw new Error('La API de imagen no devolvió datos de imagen (base64 vacío).');
+  // paso 3.8: buscar la imagen en result.image
+  if (!datos.result || !datos.result.image) {
+    throw new Error('La API de imagen no devolvió datos de imagen (result.image vacío).');
   }
 
   // paso 3.9: convertir el base64 en bytes y guardar el .jpg (sin 'utf-8')
-  const bytes = Buffer.from(artefacto.base64, 'base64');
+  const bytes = Buffer.from(datos.result.image, 'base64');
   fs.mkdirSync(carpetaImagenes, { recursive: true });
   fs.writeFileSync(rutaImagen, bytes);
   return rutaImagen;

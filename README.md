@@ -101,4 +101,75 @@ Las carpetas `data/`, `descripciones/` e `imagenes/` no se suben a git.
 
 ## Notas
 
--
+- El catálogo de NVIDIA cambia: un modelo de texto que aparece en la lista puede
+  responder 404. Si pasa, prueba otro modelo y cámbialo en `TEXTO_MODELO`.
+- La imagen se genera con Cloudflare Workers AI. Se probó antes con NVIDIA
+  FLUX.1-schnell, pero ese servicio devolvió errores 500 en el servidor de NVIDIA.
+- El programa solo envía la descripción a la API de imagen, así que el resultado
+  puede variar entre ejecuciones.
+
+## Enunciado del proyecto
+
+Este programa se construyó siguiendo el enunciado de abajo, escrito como un prompt
+para una guía paso a paso. Está tal cual se escribió, con el espacio para la ficha
+del servicio que se completó durante el trabajo.
+
+```text
+Quiero construir un programa de consola que se va llamar mundos-ia y quiero que me guies para hacerlo yo mismo
+CONTEXTO: solo conozco process.argv, template literals, JavaScript básico,
+JSON.stringify/parse, módulos con require (CommonJS), fs (writeFileSync,
+readFileSync, existsSync, mkdirSync), path, npm (init, install, scripts),
+el paquete object-hash, .env con process.loadEnvFile, async/await con
+try/catch, fetch nativo, AbortSignal.timeout y Buffer.from.
+OBJETIVO:
+npm start -- "<situación>" "<mundo>" <color1> <color2> <color3> <color4> <color5>
+1. Validar los argumentos (exactamente 7, ninguno vacío, 5 colores distintos
+   sin distinguir mayúsculas) con mensajes en español y process.exitCode = 1.
+   Guardar un JSON en data/mundo_<id>.json con: id, situacion, mundo, colores
+   (arreglo de 5) y creadoEn (ISO). El id son los primeros 8 caracteres del
+   hash de object-hash sobre { situacion, mundo, colores } (sin creadoEn).
+2. Releer ese JSON del archivo y enviarlo con fetch a una API de texto para
+   que genere la descripción de una imagen: un solo párrafo en inglés, 80 a
+   120 palabras, con escena, iluminación, composición y estilo, mencionando
+   los 5 colores, sin markdown ni texto dentro de la imagen. Si viene vacía,
+   lanzar Error; si pasa de 1500 caracteres, recortar con slice y avisar.
+   Guardar en descripciones/mundo_<id>.txt.
+3. Leer ese .txt, enviarlo con fetch a una API de imágenes y guardar la
+   imagen en imagenes/mundo_<id>.jpg (con writeFileSync, sin 'utf-8').
+
+RESTRICCIONES:
+- Prohibido: dotenv, axios, node-fetch, SDKs, readline, commander, yargs,
+  frameworks, TypeScript. Solo object-hash como paquete externo.
+- Código simple con comentarios en español numerados ("paso 1", "paso 2"...).
+- Claves en .env (TEXTO_API_KEY, TEXTO_URL, TEXTO_MODELO, IMAGEN_API_KEY,
+  IMAGEN_URL); nunca en el código ni impresas en consola o errores.
+- Rutas con path.join(__dirname, '..', 'data'); crear carpetas con
+  mkdirSync({ recursive: true }).
+- Si el .txt o la imagen ya existen, no llamar a las APIs e informarlo.
+  Si un paso falla, conservar los archivos anteriores.
+- Timeouts: 30000 ms texto y 60000 ms imagen; revisar respuesta.ok.
+  Con NVIDIA, verificar finishReason === "SUCCESS".
+- Mensajes "Paso N: ..." en español y errores explicados en español:
+  401/403 clave inválida, 402/429 límite de uso, 404/410 modelo o URL
+  incorrectos, TypeError sin conexión, TimeoutError tiempo agotado.
+- Archivos: src/index.js (async main con try/catch), src/mundo.js
+  (crearMundo, guardarMundo, leerMundo), src/texto.js (describirMundo),
+  src/imagen.js (generarImagen), .env.example, .gitignore (node_modules/,
+  .env, data/, descripciones/, imagenes/), package.json (con script start)
+  y README.md.
+
+SERVICIOS: texto con <Groq o NVIDIA>, imagen con <NVIDIA FLUX.1-schnell o
+Cloudflare>. (Pega aquí la ficha del servicio de la guía del taller.)
+
+FORMA DE RESPONDER: guíame un archivo a la vez, espera a que yo diga
+"siguiente", explica cada bloque en 2 líneas y no uses nada fuera del
+CONTEXTO. Después de cada archivo dime cómo probarlo y qué commit hacer.
+Empieza por la Parte 1: comandos de git/npm, package.json, .gitignore y
+.env.example.
+```
+
+### Servicios que se usaron al final
+
+- **Texto:** NVIDIA, con el modelo `nvidia/nemotron-3.5-bolt-e4b`.
+- **Imagen:** Cloudflare Workers AI (FLUX.1-schnell). Se probó primero con NVIDIA
+  FLUX.1-schnell, pero ese servicio devolvió errores 500 en el servidor de NVIDIA.

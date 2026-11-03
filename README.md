@@ -108,6 +108,68 @@ Las carpetas `data/`, `descripciones/` e `imagenes/` no se suben a git.
 - El programa solo envía la descripción a la API de imagen, así que el resultado
   puede variar entre ejecuciones.
 
+## Preguntas de reflexión
+
+### 1. ¿Por qué el `id` se calcula sin la fecha? ¿Qué pasaría si la incluyeras?
+
+El `id` sale del hash del contenido (`situacion`, `mundo` y `colores`). Si los datos son
+los mismos, el id es el mismo, y eso permite reconocer que ese mundo ya se generó.
+Si incluyera `creadoEn`, cada ejecución daría un id distinto aunque los datos fueran
+iguales. Entonces el programa nunca encontraría el `.txt` ni el `.jpg` existentes,
+llamaría a las APIs cada vez, gastaría cuota y dejaría archivos duplicados.
+
+### 2. ¿Por qué se le pide al modelo de texto la descripción en inglés?
+
+Los modelos de imagen como FLUX se entrenaron sobre todo con descripciones en inglés,
+así que suelen entender mejor ese idioma. Por eso el prompt le pide al modelo de texto
+que traduzca los colores y escriba todo en inglés.
+
+**Comparación con español:** no llegué a probar una descripción en español, así que no
+tengo una comparación propia de las imágenes. Lo esperable es que el resultado sea menos
+fiel (por ejemplo, que ignore o cambie algún color o detalle de la escena), pero eso
+habría que comprobarlo generando el mismo mundo con el prompt en español.
+
+### 3. ¿Qué diferencia hay entre una respuesta JSON de texto y una con los bytes de una imagen? ¿Qué es base64?
+
+Una respuesta de texto es JSON legible: la descripción llega en `choices[0].message.content`.
+Una imagen son bytes binarios, que no se pueden meter directamente en un JSON.
+**Base64** es una forma de escribir esos bytes usando solo letras, números y algunos
+símbolos, para poder enviarlos como texto. La API de imagen devuelve el base64 en
+`result.image`, y `Buffer.from(..., 'base64')` lo convierte de nuevo en los bytes originales.
+
+### 4. ¿Qué pasaría si guardas la imagen con `'utf-8'`? ¿Por qué?
+
+El archivo quedaría corrupto y no se abriría. La opción `'utf-8'` trata el contenido como
+texto y altera o reemplaza los bytes que no son texto válido, y una imagen está hecha
+de bytes binarios. Sin `'utf-8'`, `writeFileSync` escribe los bytes exactamente como
+llegaron.
+
+### 5. ¿Qué pasos consumen cuota gratuita y cómo evitaste repetirlos?
+
+- **Paso 1** (validar y guardar el JSON): es local y no consume cuota.
+- **Paso 2** (descripción con NVIDIA): consume cuota de texto.
+- **Paso 3** (imagen con Cloudflare Workers AI): consume cuota de imagen.
+
+Para no repetirlos, antes de llamar a cada API el programa revisa con `fs.existsSync`
+si el `.txt` o el `.jpg` de ese `id` ya existen. Si existen, lo avisa y no llama a la API.
+Como el `id` depende solo del contenido, los mismos datos siempre apuntan a los mismos
+archivos. Además, los archivos se guardan solo cuando todo salió bien, así que un
+paso fallido no deja archivos a medias.
+
+### 6. Si usaste IA: ¿qué fue lo más difícil de pedirle y qué parte tuviste que corregir tú?
+
+Usé IA como guía paso a paso: el enunciado que le di está al final de este README.
+
+- **Lo más difícil de pedirle:** no fue difícil pedirle las cosas, porque la IA entendía
+  lo que yo quería y sabía explicarlo bien.
+- **Lo que tuve que corregir yo:** parte del código, sobre todo las exportaciones
+  (`require` y `module.exports`) y la organización de la estructura. Algunas cosas
+  estaban demasiado complejas y las quise más sencillas.
+
+Cambios que hice durante el trabajo y que ya están en las notas: el modelo de texto de
+NVIDIA respondía 404 y tuve que probar otro, y la imagen con NVIDIA FLUX.1-schnell
+devolvía errores 500, así que pasé a Cloudflare Workers AI.
+
 ## Enunciado del proyecto
 
 Este programa se construyó siguiendo el enunciado de abajo, escrito como un prompt
